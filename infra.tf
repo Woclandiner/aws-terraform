@@ -1,4 +1,6 @@
 ### DEFINING PROVIDER
+##
+
 
 provider "aws" {
     profile = "default"
