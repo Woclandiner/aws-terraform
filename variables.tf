@@ -40,15 +40,15 @@ variable "CIDR04" {
  default = "10.1.0.0/16"
 }
 
-variable "external_subnet" {
+variable "externalsubnet" {
  default = "10.0.1.0/24"
 }
 
-variable "internal_subnet" {
+variable "internalsubnet" {
  default = "10.1.1.0/24"
 }
 
-variable "destination_default" {
+variable "destinationdefault" {
  default = "0.0.0.0/0"
 }
 
