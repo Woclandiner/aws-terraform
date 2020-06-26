@@ -7,6 +7,21 @@ provider "aws" {
     region = "us-east-1"
 }
 
+
+### CREATE BUCKET
+
+resource "aws_s3_bucket" "TRF_bucket_0001" {
+
+    bucket = "woclandinerbucket0001"
+    acl    = "private"
+
+    tags = {
+        Name        = "TRF-woclandiner-bucket-0001"
+        Environment = "TRF"
+    }
+
+}
+
 ### CREATE VPC
 
 resource "aws_vpc" "TRF_vpc" {
@@ -65,6 +80,48 @@ resource "aws_security_group" "TRF_SG_WEB" {
         protocol    = "tcp"
         description = "HTTPS"
     }
+
+        ingress {
+        cidr_blocks = [var.destinationdefault]
+        from_port   = 22
+        to_port     = 22
+        protocol    = "tcp"
+        description = "HTTPS"
+    }
+
+        ingress {
+        cidr_blocks = [var.destinationdefault]
+        from_port   = -1
+        to_port     = -1
+        protocol    = "icmp"
+        description = "ICMP"
+    }
+
+        egress {
+        cidr_blocks = [var.destinationdefault]
+        from_port   = 80
+        to_port     = 80
+        protocol    = "tcp"
+        description = "HTTP"
+    }
+
+        egress {
+        cidr_blocks = [var.destinationdefault]
+        from_port   = 443
+        to_port     = 443
+        protocol    = "tcp"
+        description = "HTTPS"
+    }
+
+        egress {
+        cidr_blocks = [var.destinationdefault]
+        from_port   = -1
+        to_port     = -1
+        protocol    = "icmp"
+        description = "ICMP"
+    }
+
+
 
         tags = {
             Name = "TRF_SG_WEB"
@@ -431,6 +488,7 @@ resource "aws_instance" "WebServer_TRF" {
     ami = "ami-2757f631"
     instance_type = "t2.micro"
     associate_public_ip_address = true
+    key_name = "trf-us-east1-0001"
     subnet_id = aws_subnet.TRF_Ext_Sub_01.id
     vpc_security_group_ids = [aws_security_group.TRF_SG_WEB.id]
 
@@ -448,11 +506,30 @@ resource "aws_instance" "Database_TRF" {
     ami = "ami-2757f631"
     instance_type = "t2.micro"
     associate_public_ip_address = false
+    key_name = "trf-us-east1-0001"
     subnet_id = aws_subnet.TRF_Int_Sub_01.id
     vpc_security_group_ids = [aws_security_group.TRF_SG_DB.id]
 
     tags = {
         Name = "Database"
+        Origin = "TRF"
+    }
+
+}
+
+### CREATE GIT INSTANCE
+
+resource "aws_instance" "GITLAB_TRF" {
+
+    ami = "ami-01ca03df4a6012157"
+    instance_type = "t2.micro"
+    associate_public_ip_address = true
+    key_name = "trf-us-east1-0001"
+    subnet_id = aws_subnet.TRF_Ext_Sub_01.id
+    vpc_security_group_ids = [aws_security_group.TRF_SG_WEB.id]
+
+    tags = {
+        Name = "GITLAB"
         Origin = "TRF"
     }
 
