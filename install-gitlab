@@ -1,0 +1,12 @@
+sudo dnf clean all
+sudo dnf update -y
+sudo dnf install curl policycoreutils-python openssh-server -y
+sudo dnf install postfix -y
+sudo systemctl start postfix
+sudo systemctl enable postfix
+curl https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.rpm.sh | sudo bash
+EXTERNAL_URL="http://gitlab.idroot.us" dnf install gitlab-ce -y
+gitlab-ctl reconfigure
+firewall-cmd --permanent --add-service=80/tcp
+firewall-cmd --permanent --add-service=443/tcp
+systemctl reload firewalld

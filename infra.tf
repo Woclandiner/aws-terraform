@@ -7,13 +7,36 @@ provider "aws" {
     region = "us-east-1"
 }
 
+### GET Account ID of AWS ELB Servive Account
+data "aws_elb_service_account" "main" {}
 
 ### CREATE BUCKET
 
 resource "aws_s3_bucket" "TRF_bucket_0001" {
 
-    bucket = "woclandinerbucket0001"
+    bucket = "woclandiner-bucket-0001"
     acl    = "private"
+
+    policy = <<POLICY
+{
+            "Id": "policy_elb_gitlab_0001",
+            "Version": "2012-10-17",
+            "Statement": [
+                {
+                    "Action": [
+                        "s3:PutObject"
+                    ],
+                    "Effect": "Allow",
+                    "Resource": "arn:aws:s3:::woclandiner-bucket-0001/*",
+                    "Principal": {
+                        "AWS": [
+                            "${data.aws_elb_service_account.main.arn}"
+                        ]
+                    }
+                }
+            ]
+}
+POLICY
 
     tags = {
         Name        = "TRF-woclandiner-bucket-0001"
@@ -522,7 +545,7 @@ resource "aws_instance" "Database_TRF" {
 resource "aws_instance" "GITLAB_TRF" {
 
     ami = "ami-01ca03df4a6012157"
-    instance_type = "t2.micro"
+    instance_type = "t3a.xlarge"
     associate_public_ip_address = true
     key_name = "trf-us-east1-0001"
     subnet_id = aws_subnet.TRF_Ext_Sub_01.id
@@ -533,4 +556,94 @@ resource "aws_instance" "GITLAB_TRF" {
         Origin = "TRF"
     }
 
+    # Copy in the bash script we want to execute.
+
+    provisioner "file" {
+        source      = "./install-gitlab"
+        destination = "/tmp/install-gitlab"
+    }
+
+    # Change permissions on bash script and execute from ec2-user.
+
+    provisioner "remote-exec" {
+        inline = [
+            "chmod +x /tmp/install-gitlab",
+            "sudo /tmp/install-gitlab",
+        ]
+    }
+
+    # Login to the ec2-user with the aws key.
+    connection {
+        type        = "ssh"
+        user        = "centos"
+        password    = ""
+        private_key = file("~/trf-us-east1-0001.pem")
+        host        = self.public_ip
+    }
+
 }
+
+### CREATE LOADBALANCE
+
+resource "aws_lb" "TRF-lb-gitlab-001" {
+
+    name               = "TRF-lb-gitlab-001"
+    internal           = false
+    load_balancer_type = "application"
+    security_groups    = [aws_security_group.TRF_SG_WEB.id]
+    subnets            = [aws_subnet.TRF_Ext_Sub_01.id,aws_subnet.TRF_Ext_Sub_02.id]
+
+    enable_deletion_protection = false
+
+    access_logs {
+        bucket  = "woclandiner-bucket-0001"
+        prefix  = "TRF-lb-gitlab-001"
+        enabled = true
+    }
+
+    tags = {
+        Environment = "prod"
+        Name = "GITLAB"
+        Origin = "TRF"
+    }
+
+}
+
+### CREATE TARGET GROUP
+
+resource "aws_lb_target_group" "TRF-target-group-gitlab-0001" {
+
+    name     = "target-group-gitlab-0001"
+    port     = 80
+    protocol = "HTTP"
+    vpc_id   = aws_vpc.TRF_vpc.id
+
+}
+
+### ATTACH INSTANCE TO LB TARGET GROUP 
+
+resource "aws_lb_target_group_attachment" "TRF_lb_target_group_attach_0001" {
+
+    target_group_arn = aws_lb_target_group.TRF-target-group-gitlab-0001.arn
+    target_id        = aws_instance.GITLAB_TRF.id
+    port             = 80
+
+}
+
+### CREATING LISTENER
+
+resource "aws_lb_listener" "TRF_lb_listener_0001" {
+
+    load_balancer_arn = aws_lb.TRF-lb-gitlab-001.arn
+    port              = "80"
+    protocol          = "HTTP"
+#    ssl_policy        = "ELBSecurityPolicy-2016-08"
+#    certificate_arn   = "arn:aws:iam::187416307283:server-certificate/test_cert_rab3wuqwgja25ct3n4jdj2tzu4"
+
+    default_action {
+        type             = "forward"
+        target_group_arn = aws_lb_target_group.TRF-target-group-gitlab-0001.arn
+    }
+
+}
+
