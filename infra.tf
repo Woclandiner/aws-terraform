@@ -1,11 +1,3 @@
-### DEFINING PROVIDER
-##
-
-
-provider "aws" {
-    profile = "default"
-    region = "us-east-1"
-}
 
 ### GET Account ID of AWS ELB Servive Account
 data "aws_elb_service_account" "main" {}
@@ -80,7 +72,7 @@ resource "aws_vpc_ipv4_cidr_block_association" "third_cidr" {
 
 }
 
-### ADD SECURITY GROUPS
+### ADD SECURITY GROUP WEB
 
 resource "aws_security_group" "TRF_SG_WEB" {
 
@@ -88,70 +80,100 @@ resource "aws_security_group" "TRF_SG_WEB" {
     name        =    "TRF_SG_WEB"
     description =    "TRF WEB SG"
 
-    ingress {
-        cidr_blocks = [var.destinationdefault]
-        from_port   = 80
-        to_port     = 80
-        protocol    = "tcp"
-        description = "HTTP"
+    tags = {
+        Name = "TRF_SG_WEB"
+        Origin = "TRF"
     }
-
-        ingress {
-        cidr_blocks = [var.destinationdefault]
-        from_port   = 443
-        to_port     = 443
-        protocol    = "tcp"
-        description = "HTTPS"
-    }
-
-        ingress {
-        cidr_blocks = [var.destinationdefault]
-        from_port   = 22
-        to_port     = 22
-        protocol    = "tcp"
-        description = "HTTPS"
-    }
-
-        ingress {
-        cidr_blocks = [var.destinationdefault]
-        from_port   = -1
-        to_port     = -1
-        protocol    = "icmp"
-        description = "ICMP"
-    }
-
-        egress {
-        cidr_blocks = [var.destinationdefault]
-        from_port   = 80
-        to_port     = 80
-        protocol    = "tcp"
-        description = "HTTP"
-    }
-
-        egress {
-        cidr_blocks = [var.destinationdefault]
-        from_port   = 443
-        to_port     = 443
-        protocol    = "tcp"
-        description = "HTTPS"
-    }
-
-        egress {
-        cidr_blocks = [var.destinationdefault]
-        from_port   = -1
-        to_port     = -1
-        protocol    = "icmp"
-        description = "ICMP"
-    }
-
-
-
-        tags = {
-            Name = "TRF_SG_WEB"
-            Origin = "TRF"
-        }
 
 }
+
+### CREATING RULES FOR SECURITY GROUP WEB
+
+resource "aws_security_group_rule" "SSH_01" {
+
+    security_group_id = aws_security_group.TRF_SG_WEB.id
+    type        = "ingress"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
+    cidr_blocks = [var.destinationdefault]
+
+}
+
+resource "aws_security_group_rule" "HTTP_01" {
+
+    security_group_id = aws_security_group.TRF_SG_WEB.id
+    type        = "ingress"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = [var.destinationdefault]
+
+}
+
+resource "aws_security_group_rule" "HTTPS_01" {
+
+    security_group_id = aws_security_group.TRF_SG_WEB.id
+    type        = "ingress"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = [var.destinationdefault]
+
+}
+
+resource "aws_security_group_rule" "ICMP_01" {
+
+    security_group_id = aws_security_group.TRF_SG_WEB.id
+    type        = "ingress"
+    from_port   = -1
+    to_port     = -1
+    protocol    = "icmp"
+    cidr_blocks = [var.destinationdefault]
+
+}
+
+resource "aws_security_group_rule" "ALL_01_e" {
+
+    security_group_id = aws_security_group.TRF_SG_WEB.id
+    type        = "egress"
+    from_port   = -1
+    to_port     = -1
+    protocol    = "-1"
+    cidr_blocks = [var.destinationdefault]
+
+}
+
+### ADD SECURITY GROUP RDS
+
+resource "aws_security_group" "TRF_SG_RDS" {
+
+    vpc_id       = aws_vpc.TRF_vpc.id
+    name         = "TRF_SG_RDS"
+    description  = "RDS SG"
+
+    tags = {
+        Name = "TRF_SG_RDS"
+        Origin = "TRF"
+    }
+
+}
+
+### CREATING RULE FOR SECURITY GROUP RDS
+### IT'S NECESSARY TO USE SOURCE SECURITY GROUP AS SOURCE
+
+resource "aws_security_group_rule" "PostgreSQL_01" {
+
+    type        = "ingress"
+    from_port   = 5432
+    to_port     = 5432
+    protocol    = "tcp"
+    security_group_id = aws_security_group.TRF_SG_RDS.id
+    source_security_group_id = aws_security_group.TRF_SG_DB.id
+
+}
+
+### ADD SECURITY GROUP DB
 
 resource "aws_security_group" "TRF_SG_DB" {
 
@@ -169,7 +191,7 @@ resource "aws_security_group" "TRF_SG_DB" {
 ### CREATING RULE FOR SECURITY GROUP DB
 ### IT'S NECESSARY TO USE SOURCE SECURITY GROUP AS SOURCE
 
-resource "aws_security_group_rule" "SSH_01" {
+resource "aws_security_group_rule" "SSH_02" {
 
     type        = "ingress"
     from_port   = 22
@@ -191,6 +213,39 @@ resource "aws_security_group_rule" "MYSQL_01" {
 
 }
 
+resource "aws_security_group_rule" "HTTP_04" {
+
+    type        = "ingress"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    security_group_id = aws_security_group.TRF_SG_DB.id
+    source_security_group_id = aws_security_group.TRF_SG_WEB.id
+
+}
+
+resource "aws_security_group_rule" "HTTPS_04" {
+
+    type        = "ingress"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    security_group_id = aws_security_group.TRF_SG_DB.id
+    source_security_group_id = aws_security_group.TRF_SG_WEB.id
+
+}
+
+resource "aws_security_group_rule" "ALL_02_e" {
+
+    security_group_id = aws_security_group.TRF_SG_DB.id
+    type        = "egress"
+    from_port   = -1
+    to_port     = -1
+    protocol    = "-1"
+    cidr_blocks = [var.destinationdefault]
+
+}
+
 resource "aws_security_group" "TRF_SG_MGMT" {
 
     vpc_id       = aws_vpc.TRF_vpc.id
@@ -205,9 +260,8 @@ resource "aws_security_group" "TRF_SG_MGMT" {
 }
 
 ### CREATING RULE FOR SECURITY GROUP MGMT
-### IT'S NECESSARY TO USE SOURCE SECURITY GROUP AS SOURCE
 
-resource "aws_security_group_rule" "SSH_02" {
+resource "aws_security_group_rule" "SSH_03" {
 
     type        = "ingress"
     from_port   = 22
@@ -229,7 +283,7 @@ resource "aws_security_group_rule" "RDP_01" {
 
 }
 
-resource "aws_security_group_rule" "HTTP_01" {
+resource "aws_security_group_rule" "HTTP_02" {
 
     type        = "ingress"
     from_port   = 80
@@ -240,7 +294,7 @@ resource "aws_security_group_rule" "HTTP_01" {
 
 }
 
-resource "aws_security_group_rule" "HTTPS_01" {
+resource "aws_security_group_rule" "HTTPS_02" {
 
     type        = "ingress"
     from_port   = 443
@@ -363,7 +417,7 @@ resource "aws_route_table" "TRF_RT_PUBLIC" {
 
 }
 
-resource "aws_route_table" "TRF_RT_INTERNAL" {
+resource "aws_route_table" "TRF_RT_INTERNAL_01" {
 
     vpc_id = aws_vpc.TRF_vpc.id
 
@@ -373,7 +427,17 @@ resource "aws_route_table" "TRF_RT_INTERNAL" {
     }
 }
 
-resource "aws_route_table" "TRF_RT_MGMT" {
+resource "aws_route_table" "TRF_RT_INTERNAL_02" {
+
+    vpc_id = aws_vpc.TRF_vpc.id
+
+    tags = {
+        Name = "TRF_RT_INT"
+        Origin = "TRF"
+    }
+}
+
+resource "aws_route_table" "TRF_RT_MGMT_01" {
 
     vpc_id = aws_vpc.TRF_vpc.id
 
@@ -383,6 +447,15 @@ resource "aws_route_table" "TRF_RT_MGMT" {
     }
 }
 
+resource "aws_route_table" "TRF_RT_MGMT_02" {
+
+    vpc_id = aws_vpc.TRF_vpc.id
+
+    tags = {
+        Name = "TRF_RT_MGMT"
+        Origin = "TRF"
+    }
+}
 
 ### CREATE ROUTE TO INTERNET
 
@@ -414,6 +487,24 @@ resource "aws_eip" "TRF_EIP_02"{
 
 }
 
+resource "aws_eip" "TRF_EIP_03"{
+
+    tags = {
+        Name = "TRF_EIP_03"
+        Origin = "TRF"
+    }
+
+}
+
+resource "aws_eip" "TRF_EIP_04"{
+
+    tags = {
+        Name = "TRF_EIP_04"
+        Origin = "TRF"
+    }
+
+}
+
 ### CREATE NAT GATEWAY
 
 resource "aws_nat_gateway" "TRF_NAT_GW_01" {
@@ -440,23 +531,65 @@ resource "aws_nat_gateway" "TRF_NAT_GW_02" {
 
 }
 
+### CREATE NAT GATEWAY
+
+resource "aws_nat_gateway" "TRF_NAT_GW_03" {
+    subnet_id = aws_subnet.TRF_Ext_Sub_01.id
+    allocation_id = aws_eip.TRF_EIP_03.id
+
+    tags = {
+        Name = "TRF_NAT_GW_03"
+        Origin = "TRF"
+    }
+
+}
+
+### CREATE NAT GATEWAY
+
+resource "aws_nat_gateway" "TRF_NAT_GW_04" {
+    subnet_id = aws_subnet.TRF_Ext_Sub_02.id
+    allocation_id = aws_eip.TRF_EIP_04.id
+
+    tags = {
+        Name = "TRF_NAT_GW_04"
+        Origin = "TRF"
+    }
+
+}
+
 ### CREATE ROUTE TO NAT GATEWAY FROM INTERNAL NETWORK
 
-resource "aws_route" "TRF_Nat_Route_Int_Net" {
+resource "aws_route" "TRF_Nat_Route_Int_Net_01" {
 
-    route_table_id = aws_route_table.TRF_RT_INTERNAL.id
+    route_table_id = aws_route_table.TRF_RT_INTERNAL_01.id
     destination_cidr_block = var.destinationdefault
     nat_gateway_id = aws_nat_gateway.TRF_NAT_GW_01.id
 
 }
 
-### CREATE ROUTE TO NAT GATEWAY FROM MGMT NETWORK
+resource "aws_route" "TRF_Nat_Route_Int_Net_02" {
 
-resource "aws_route" "TRF_Nat_Route_MGMT_Net" {
-
-    route_table_id = aws_route_table.TRF_RT_MGMT.id
+    route_table_id = aws_route_table.TRF_RT_INTERNAL_02.id
     destination_cidr_block = var.destinationdefault
     nat_gateway_id = aws_nat_gateway.TRF_NAT_GW_02.id
+
+}
+
+### CREATE ROUTE TO NAT GATEWAY FROM MGMT NETWORK
+
+resource "aws_route" "TRF_Nat_Route_MGMT_Net_01" {
+
+    route_table_id = aws_route_table.TRF_RT_MGMT_01.id
+    destination_cidr_block = var.destinationdefault
+    nat_gateway_id = aws_nat_gateway.TRF_NAT_GW_03.id
+
+}
+
+resource "aws_route" "TRF_Nat_Route_MGMT_Net_02" {
+
+    route_table_id = aws_route_table.TRF_RT_MGMT_02.id
+    destination_cidr_block = var.destinationdefault
+    nat_gateway_id = aws_nat_gateway.TRF_NAT_GW_04.id
 
 }
 
@@ -479,28 +612,28 @@ resource "aws_route_table_association" "TRF_vpc_association_pub_02" {
 resource "aws_route_table_association" "TRF_vpc_association_int_01" {
 
     subnet_id      = aws_subnet.TRF_Int_Sub_01.id
-    route_table_id = aws_route_table.TRF_RT_INTERNAL.id
+    route_table_id = aws_route_table.TRF_RT_INTERNAL_01.id
 
 }
 
 resource "aws_route_table_association" "TRF_vpc_association_int_02" {
 
     subnet_id      = aws_subnet.TRF_Int_Sub_02.id
-    route_table_id = aws_route_table.TRF_RT_INTERNAL.id
+    route_table_id = aws_route_table.TRF_RT_INTERNAL_02.id
 
 }
 
 resource "aws_route_table_association" "TRF_vpc_association_mgmt_01" {
 
     subnet_id      = aws_subnet.TRF_MGMT_Sub_01.id
-    route_table_id = aws_route_table.TRF_RT_MGMT.id
+    route_table_id = aws_route_table.TRF_RT_MGMT_01.id
 
 }
 
 resource "aws_route_table_association" "TRF_vpc_association_mgmt_02" {
 
     subnet_id      = aws_subnet.TRF_MGMT_Sub_02.id
-    route_table_id = aws_route_table.TRF_RT_MGMT.id
+    route_table_id = aws_route_table.TRF_RT_MGMT_02.id
 
 }
 
@@ -546,10 +679,10 @@ resource "aws_instance" "GITLAB_TRF" {
 
     ami = "ami-01ca03df4a6012157"
     instance_type = "t3a.xlarge"
-    associate_public_ip_address = true
+    associate_public_ip_address = false
     key_name = "trf-us-east1-0001"
-    subnet_id = aws_subnet.TRF_Ext_Sub_01.id
-    vpc_security_group_ids = [aws_security_group.TRF_SG_WEB.id]
+    subnet_id = aws_subnet.TRF_Int_Sub_01.id
+    vpc_security_group_ids = [aws_security_group.TRF_SG_DB.id]
 
     tags = {
         Name = "GITLAB"
@@ -603,7 +736,7 @@ resource "aws_lb" "TRF-lb-gitlab-001" {
 
     tags = {
         Environment = "prod"
-        Name = "GITLAB"
+        Name = "GITLAB_LB"
         Origin = "TRF"
     }
 
@@ -646,4 +779,3 @@ resource "aws_lb_listener" "TRF_lb_listener_0001" {
     }
 
 }
-
