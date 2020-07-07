@@ -689,31 +689,6 @@ resource "aws_instance" "GITLAB_TRF" {
         Origin = "TRF"
     }
 
-    # Copy in the bash script we want to execute.
-
-    provisioner "file" {
-        source      = "./install-gitlab"
-        destination = "/tmp/install-gitlab"
-    }
-
-    # Change permissions on bash script and execute from ec2-user.
-
-    provisioner "remote-exec" {
-        inline = [
-            "chmod +x /tmp/install-gitlab",
-            "sudo /tmp/install-gitlab",
-        ]
-    }
-
-    # Login to the ec2-user with the aws key.
-    connection {
-        type        = "ssh"
-        user        = "centos"
-        password    = ""
-        private_key = file("~/trf-us-east1-0001.pem")
-        host        = self.public_ip
-    }
-
 }
 
 ### CREATE LOADBALANCE
@@ -777,5 +752,63 @@ resource "aws_lb_listener" "TRF_lb_listener_0001" {
         type             = "forward"
         target_group_arn = aws_lb_target_group.TRF-target-group-gitlab-0001.arn
     }
+
+}
+
+resource "aws_dynamodb_table" "terraform_state_lock" {
+
+    name="terraform-lock"
+    read_capacity=5
+    write_capacity=5
+    hash_key="LockID"
+    attribute{
+        name="LockID"
+        type="S"
+    }
+
+}
+
+resource "aws_db_subnet_group" "TRF_db_subnet_group_0001" {
+
+    name       = "db_subnet_group_gitlab_0001"
+    subnet_ids = [aws_subnet.TRF_Int_Sub_01.id,aws_subnet.TRF_Int_Sub_02.id]
+
+    tags = {
+        Name = "My DB subnet group"
+    }
+
+}
+
+resource "aws_rds_cluster" "TRF_aurora_postgre_gitlab_0001" {
+
+    cluster_identifier       = "aurora-postgre-gitlab-0001"
+    engine                   = "aurora-postgresql"
+    availability_zones       = ["us-east-1a", "us-east-1b"]
+    database_name            = "gitlabhq_production"
+    master_username          = "gitlab"
+    master_password          = "gitlab123"
+    backup_retention_period  = 30
+    preferred_backup_window  = "00:00-03:00"
+    deletion_protection      = true
+    engine_mode              = "serverless"
+    db_subnet_group_name     = aws_db_subnet_group.TRF_db_subnet_group_0001.id
+    vpc_security_group_ids   = [aws_security_group.TRF_SG_RDS.id]
+
+}
+
+resource "aws_rds_cluster" "TRF_aurora_postgre_gitlab_0002" {
+
+    cluster_identifier       = "aurora-postgre-gitlab-0002"
+    engine                   = "aurora-postgresql"
+    availability_zones       = ["us-east-1a", "us-east-1b"]
+    database_name            = "gitlabhq_production"
+    master_username          = "gitlab"
+    master_password          = "gitlab123"
+    backup_retention_period  = 30
+    preferred_backup_window  = "00:00-03:00"
+    deletion_protection      = true
+    engine_mode              = "serverless"
+    db_subnet_group_name     = aws_db_subnet_group.TRF_db_subnet_group_0001.id
+    vpc_security_group_ids   = [aws_security_group.TRF_SG_RDS.id]
 
 }
