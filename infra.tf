@@ -4,14 +4,14 @@ data "aws_elb_service_account" "main" {}
 
 ### CREATE BUCKET
 
-resource "aws_s3_bucket" "TRF_bucket_0001" {
+resource "aws_s3_bucket" "elb-bucket-0001" {
 
     bucket = "woclandiner-bucket-0001"
     acl    = "private"
 
     policy = <<POLICY
 {
-            "Id": "policy_elb_gitlab_0001",
+            "Id": "policy-elb-gitlab-0001",
             "Version": "2012-10-17",
             "Statement": [
                 {
@@ -31,15 +31,17 @@ resource "aws_s3_bucket" "TRF_bucket_0001" {
 POLICY
 
     tags = {
-        Name        = "TRF-woclandiner-bucket-0001"
-        Environment = "TRF"
+        Name        = "elb-bucket-0001"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
     }
 
 }
 
 ### CREATE VPC
 
-resource "aws_vpc" "TRF_vpc" {
+resource "aws_vpc" "vpc-corp-0001" {
 
     cidr_block           = var.CIDR01
     instance_tenancy     = var.instancetenancy
@@ -48,50 +50,46 @@ resource "aws_vpc" "TRF_vpc" {
 
     tags = {
 
-        Name = "TRF_vpc"
-        Origin = "TRF"
+        Name        = "vpc-corp-0001"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
+
     }
 
-} # end resource
+}
 
 ### ADD SECONDARY CIDR  
 
 resource "aws_vpc_ipv4_cidr_block_association" "secondary_cidr" {
 
-    vpc_id     = aws_vpc.TRF_vpc.id
-    cidr_block = var.CIDR04
-
-}
-
-### ADD THIRD CIDR  
-
-resource "aws_vpc_ipv4_cidr_block_association" "third_cidr" {
-
-    vpc_id     = aws_vpc.TRF_vpc.id
-    cidr_block = var.CIDR05
+    vpc_id     = aws_vpc.vpc-corp-0001.id
+    cidr_block = var.CIDR02
 
 }
 
 ### ADD SECURITY GROUP WEB
 
-resource "aws_security_group" "TRF_SG_WEB" {
+resource "aws_security_group" "secgrp-web-0001" {
 
-    vpc_id      =    aws_vpc.TRF_vpc.id
-    name        =    "TRF_SG_WEB"
-    description =    "TRF WEB SG"
+    vpc_id      =    aws_vpc.vpc-corp-0001.id
+    name        =    "secgrp-web-0001"
+    description =    "WEB SG"
 
     tags = {
-        Name = "TRF_SG_WEB"
-        Origin = "TRF"
+        Name        = "secgrp-web-0001"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
     }
 
 }
 
 ### CREATING RULES FOR SECURITY GROUP WEB
 
-resource "aws_security_group_rule" "SSH_01" {
+resource "aws_security_group_rule" "rule-in-ssh-0001" {
 
-    security_group_id = aws_security_group.TRF_SG_WEB.id
+    security_group_id = aws_security_group.secgrp-web-0001.id
     type        = "ingress"
     from_port   = 22
     to_port     = 22
@@ -100,9 +98,9 @@ resource "aws_security_group_rule" "SSH_01" {
 
 }
 
-resource "aws_security_group_rule" "HTTP_01" {
+resource "aws_security_group_rule" "rule-in-http-0001" {
 
-    security_group_id = aws_security_group.TRF_SG_WEB.id
+    security_group_id = aws_security_group.secgrp-web-0001.id
     type        = "ingress"
     from_port   = 80
     to_port     = 80
@@ -111,9 +109,9 @@ resource "aws_security_group_rule" "HTTP_01" {
 
 }
 
-resource "aws_security_group_rule" "HTTPS_01" {
+resource "aws_security_group_rule" "rule-in-https-0001" {
 
-    security_group_id = aws_security_group.TRF_SG_WEB.id
+    security_group_id = aws_security_group.secgrp-web-0001.id
     type        = "ingress"
     from_port   = 443
     to_port     = 443
@@ -122,9 +120,9 @@ resource "aws_security_group_rule" "HTTPS_01" {
 
 }
 
-resource "aws_security_group_rule" "ICMP_01" {
+resource "aws_security_group_rule" "rule-in-icmp-0001" {
 
-    security_group_id = aws_security_group.TRF_SG_WEB.id
+    security_group_id = aws_security_group.secgrp-web-0001.id
     type        = "ingress"
     from_port   = -1
     to_port     = -1
@@ -133,28 +131,52 @@ resource "aws_security_group_rule" "ICMP_01" {
 
 }
 
-resource "aws_security_group_rule" "ALL_01_e" {
+resource "aws_security_group_rule" "rule-out-http-0001" {
 
-    security_group_id = aws_security_group.TRF_SG_WEB.id
+    security_group_id = aws_security_group.secgrp-web-0001.id
     type        = "egress"
-    from_port   = -1
-    to_port     = -1
-    protocol    = "-1"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = [var.destinationdefault]
+
+}
+
+resource "aws_security_group_rule" "rule-out-https-0001" {
+
+    security_group_id = aws_security_group.secgrp-web-0001.id
+    type        = "egress"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = [var.destinationdefault]
+
+}
+
+resource "aws_security_group_rule" "rule-out-ssh-0001" {
+
+    security_group_id = aws_security_group.secgrp-web-0001.id
+    type        = "egress"
+    from_port   = 22
+    to_port     = 22
+    protocol    = "tcp"
     cidr_blocks = [var.destinationdefault]
 
 }
 
 ### ADD SECURITY GROUP RDS
 
-resource "aws_security_group" "TRF_SG_RDS" {
+resource "aws_security_group" "secgrp-rds-0001" {
 
-    vpc_id       = aws_vpc.TRF_vpc.id
-    name         = "TRF_SG_RDS"
+    vpc_id       = aws_vpc.vpc-corp-0001.id
+    name         = "secgrp-rds-0001"
     description  = "RDS SG"
 
     tags = {
-        Name = "TRF_SG_RDS"
-        Origin = "TRF"
+        Name = "secgrp-rds-0001"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
     }
 
 }
@@ -162,298 +184,466 @@ resource "aws_security_group" "TRF_SG_RDS" {
 ### CREATING RULE FOR SECURITY GROUP RDS
 ### IT'S NECESSARY TO USE SOURCE SECURITY GROUP AS SOURCE
 
-resource "aws_security_group_rule" "PostgreSQL_01" {
+resource "aws_security_group_rule" "rule-in-postgre-0001" {
 
     type        = "ingress"
     from_port   = 5432
     to_port     = 5432
     protocol    = "tcp"
-    security_group_id = aws_security_group.TRF_SG_RDS.id
-    source_security_group_id = aws_security_group.TRF_SG_DB.id
+    security_group_id = aws_security_group.secgrp-rds-0001.id
+    source_security_group_id = aws_security_group.secgrp-mgmt-0001.id
 
 }
 
-### ADD SECURITY GROUP DB
+### ADD SECURITY GROUP REDIS
 
-resource "aws_security_group" "TRF_SG_DB" {
+resource "aws_security_group" "secgrp-redis-0001" {
 
-    vpc_id       = aws_vpc.TRF_vpc.id
-    name         = "TRF_SG_DB"
-    description  = "DB SG"
+    vpc_id       = aws_vpc.vpc-corp-0001.id
+    name         = "secgrp-redis-0001"
+    description  = "REDIS SG"
 
     tags = {
-        Name = "TRF_SG_DB"
-        Origin = "TRF"
+        Name = "secgrp-redis-0001"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
     }
 
 }
 
-### CREATING RULE FOR SECURITY GROUP DB
+### CREATING RULE FOR SECURITY GROUP REDIS
 ### IT'S NECESSARY TO USE SOURCE SECURITY GROUP AS SOURCE
 
-resource "aws_security_group_rule" "SSH_02" {
+resource "aws_security_group_rule" "rule-in-redis-0001" {
+
+    type        = "ingress"
+    from_port   = 6379
+    to_port     = 6379
+    protocol    = "tcp"
+    security_group_id = aws_security_group.secgrp-redis-0001.id
+    source_security_group_id = aws_security_group.secgrp-mgmt-0001.id
+
+}
+
+### ADD SECURITY GROUP PRIVATE
+
+resource "aws_security_group" "secgrp-private-0001" {
+
+    vpc_id       = aws_vpc.vpc-corp-0001.id
+    name         = "secgrp-private-0001"
+    description  = "sg private"
+
+    tags = {
+        Name        = "secgrp-private-0001"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
+    }
+
+}
+
+### CREATING RULE FOR SECURITY GROUP PRIVATE
+### IT'S NECESSARY TO USE SOURCE SECURITY GROUP AS SOURCE
+
+resource "aws_security_group_rule" "rule-in-ssh-0002" {
 
     type        = "ingress"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    security_group_id = aws_security_group.TRF_SG_DB.id
-    source_security_group_id = aws_security_group.TRF_SG_WEB.id
+    security_group_id = aws_security_group.secgrp-private-0001.id
+    source_security_group_id = aws_security_group.secgrp-web-0001.id
 
 }
 
-resource "aws_security_group_rule" "MYSQL_01" {
-
-    type        = "ingress"
-    from_port   = 3306
-    to_port     = 3306
-    protocol    = "tcp"
-    security_group_id = aws_security_group.TRF_SG_DB.id
-    source_security_group_id = aws_security_group.TRF_SG_WEB.id
-
-}
-
-resource "aws_security_group_rule" "HTTP_04" {
+resource "aws_security_group_rule" "rule-in-http-0002" {
 
     type        = "ingress"
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    security_group_id = aws_security_group.TRF_SG_DB.id
-    source_security_group_id = aws_security_group.TRF_SG_WEB.id
+    security_group_id = aws_security_group.secgrp-private-0001.id
+    source_security_group_id = aws_security_group.secgrp-web-0001.id
 
 }
 
-resource "aws_security_group_rule" "HTTPS_04" {
+resource "aws_security_group_rule" "rule-in-https-0002" {
 
     type        = "ingress"
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
-    security_group_id = aws_security_group.TRF_SG_DB.id
-    source_security_group_id = aws_security_group.TRF_SG_WEB.id
+    security_group_id = aws_security_group.secgrp-private-0001.id
+    source_security_group_id = aws_security_group.secgrp-web-0001.id
 
 }
 
-resource "aws_security_group_rule" "ALL_02_e" {
+resource "aws_security_group_rule" "rule-out-http-0002" {
 
-    security_group_id = aws_security_group.TRF_SG_DB.id
+    security_group_id = aws_security_group.secgrp-private-0001.id
     type        = "egress"
-    from_port   = -1
-    to_port     = -1
-    protocol    = "-1"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
     cidr_blocks = [var.destinationdefault]
 
 }
 
-resource "aws_security_group" "TRF_SG_MGMT" {
+resource "aws_security_group_rule" "rule-out-https-0002" {
 
-    vpc_id       = aws_vpc.TRF_vpc.id
-    name         = "TRF_SG_MGMT"
-    description  = "MGMT SG"
+    security_group_id = aws_security_group.secgrp-private-0001.id
+    type        = "egress"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = [var.destinationdefault]
+
+}
+
+### ADD SECURITY GROUP MGMT
+
+resource "aws_security_group" "secgrp-mgmt-0001" {
+
+    vpc_id       = aws_vpc.vpc-corp-0001.id
+    name         = "secgrp-mgmt-0001"
+    description  = "SG MGMT"
 
     tags = {
-        Name = "TRF_SG_MGMT"
-        Origin = "TRF"
+        Name        = "secgrp-mgmt-0001"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
     }
 
 }
 
 ### CREATING RULE FOR SECURITY GROUP MGMT
 
-resource "aws_security_group_rule" "SSH_03" {
+resource "aws_security_group_rule" "rule-in-ssh-0003" {
 
     type        = "ingress"
     from_port   = 22
     to_port     = 22
     protocol    = "tcp"
-    security_group_id = aws_security_group.TRF_SG_MGMT.id
+    security_group_id = aws_security_group.secgrp-mgmt-0001.id
     cidr_blocks = [var.destinationdefault]
 
 }
 
-resource "aws_security_group_rule" "RDP_01" {
+resource "aws_security_group_rule" "rule-in-rdp-0001" {
 
     type        = "ingress"
     from_port   = 3389
     to_port     = 3389
     protocol    = "tcp"
-    security_group_id = aws_security_group.TRF_SG_MGMT.id
+    security_group_id = aws_security_group.secgrp-mgmt-0001.id
     cidr_blocks = [var.destinationdefault]
 
 }
 
-resource "aws_security_group_rule" "HTTP_02" {
+resource "aws_security_group_rule" "rule-in-http-0003" {
 
     type        = "ingress"
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    security_group_id = aws_security_group.TRF_SG_MGMT.id
+    security_group_id = aws_security_group.secgrp-mgmt-0001.id
     cidr_blocks = [var.destinationdefault]
 
 }
 
-resource "aws_security_group_rule" "HTTPS_02" {
+resource "aws_security_group_rule" "rule-in-https-0003" {
 
     type        = "ingress"
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
-    security_group_id = aws_security_group.TRF_SG_MGMT.id
+    security_group_id = aws_security_group.secgrp-mgmt-0001.id
+    cidr_blocks = [var.destinationdefault]
+
+}
+
+resource "aws_security_group_rule" "rule-out-all-0001" {
+
+    type        = "egress"
+    from_port   = -1
+    to_port     = -1
+    protocol    = "-1"
+    security_group_id = aws_security_group.secgrp-mgmt-0001.id
     cidr_blocks = [var.destinationdefault]
 
 }
 
 ### CREATE SUBNETS
 
-resource "aws_subnet" "TRF_Ext_Sub_01" {
+resource "aws_subnet" "pub-net-01" {
 
-    vpc_id                  = aws_vpc.TRF_vpc.id
+    vpc_id                  = aws_vpc.vpc-corp-0001.id
     cidr_block              = var.externalsubnet01
     map_public_ip_on_launch = false
     availability_zone       = var.availabilityzone1
 
     tags = {
-    Name = "TRF_External_Subnet_01"
-    Origin = "TRF"
+        Name        = "pub-net-01"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
     }
 
 }
 
-resource "aws_subnet" "TRF_Ext_Sub_02" {
+resource "aws_subnet" "pub-net-02" {
 
-    vpc_id                  = aws_vpc.TRF_vpc.id
+    vpc_id                  = aws_vpc.vpc-corp-0001.id
     cidr_block              = var.externalsubnet02
     map_public_ip_on_launch = false
     availability_zone       = var.availabilityzone2
 
     tags = {
-    Name = "TRF_External_Subnet_02"
-    Origin = "TRF"
+        Name        = "pub-net-02"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
     }
 
 }
 
-resource "aws_subnet" "TRF_Int_Sub_01" {
+resource "aws_subnet" "pub-net-03" {
 
-    vpc_id                  = aws_vpc.TRF_vpc.id
+    vpc_id                  = aws_vpc.vpc-corp-0001.id
+    cidr_block              = var.externalsubnet03
+    map_public_ip_on_launch = false
+    availability_zone       = var.availabilityzone3
+
+    tags = {
+        Name        = "pub-net-03"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
+    }
+
+}
+
+resource "aws_subnet" "pub-net-04" {
+
+    vpc_id                  = aws_vpc.vpc-corp-0001.id
+    cidr_block              = var.externalsubnet04
+    map_public_ip_on_launch = false
+    availability_zone       = var.availabilityzone4
+
+    tags = {
+        Name        = "pub-net-04"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
+    }
+
+}
+
+resource "aws_subnet" "priv-net-01" {
+
+    vpc_id                  = aws_vpc.vpc-corp-0001.id
     cidr_block              = var.internalsubnet01
     map_public_ip_on_launch = false
     availability_zone       = var.availabilityzone1
 
     tags = {
-    Name = "TRF_Internal_Subnet_01"
-    Origin = "TRF"
+        Name        = "priv-net-01"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
     }
 
 }
 
-resource "aws_subnet" "TRF_Int_Sub_02" {
+resource "aws_subnet" "priv-net-02" {
 
-    vpc_id                  = aws_vpc.TRF_vpc.id
+    vpc_id                  = aws_vpc.vpc-corp-0001.id
     cidr_block              = var.internalsubnet02
     map_public_ip_on_launch = false
     availability_zone       = var.availabilityzone2
 
     tags = {
-    Name = "TRF_Internal_Subnet_02"
-    Origin = "TRF"
+        Name        = "priv-net-02"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
     }
 
 }
 
-resource "aws_subnet" "TRF_MGMT_Sub_01" {
+resource "aws_subnet" "priv-net-03" {
 
-    vpc_id                  = aws_vpc.TRF_vpc.id
+    vpc_id                  = aws_vpc.vpc-corp-0001.id
+    cidr_block              = var.internalsubnet03
+    map_public_ip_on_launch = false
+    availability_zone       = var.availabilityzone3
+
+    tags = {
+        Name        = "priv-net-03"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
+    }
+
+}
+
+resource "aws_subnet" "priv-net-04" {
+
+    vpc_id                  = aws_vpc.vpc-corp-0001.id
+    cidr_block              = var.internalsubnet04
+    map_public_ip_on_launch = false
+    availability_zone       = var.availabilityzone4
+
+    tags = {
+        Name        = "priv-net-04"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
+    }
+
+}
+
+resource "aws_subnet" "mgmt-net-01" {
+
+    vpc_id                  = aws_vpc.vpc-corp-0001.id
     cidr_block              = var.mgmtsubnet01
     map_public_ip_on_launch = false
     availability_zone       = var.availabilityzone1
 
     tags = {
-    Name = "TRF_MGMT_Subnet_01"
-    Origin = "TRF"
+        Name        = "mgmt-net-01"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
     }
 
 }
 
-resource "aws_subnet" "TRF_MGMT_Sub_02" {
+resource "aws_subnet" "mgmt-net-02" {
 
-    vpc_id                  = aws_vpc.TRF_vpc.id
+    vpc_id                  = aws_vpc.vpc-corp-0001.id
     cidr_block              = var.mgmtsubnet02
     map_public_ip_on_launch = false
     availability_zone       = var.availabilityzone2
 
     tags = {
-    Name = "TRF_MGMT_Subnet_02"
-    Origin = "TRF"
+        Name        = "mgmt-net-02"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
+    }
+
+}
+
+resource "aws_subnet" "mgmt-net-03" {
+
+    vpc_id                  = aws_vpc.vpc-corp-0001.id
+    cidr_block              = var.mgmtsubnet03
+    map_public_ip_on_launch = false
+    availability_zone       = var.availabilityzone3
+
+    tags = {
+        Name        = "mgmt-net-03"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
+    }
+
+}
+
+resource "aws_subnet" "mgmt-net-04" {
+
+    vpc_id                  = aws_vpc.vpc-corp-0001.id
+    cidr_block              = var.mgmtsubnet04
+    map_public_ip_on_launch = false
+    availability_zone       = var.availabilityzone4
+
+    tags = {
+        Name        = "mgmt-net-04"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
     }
 
 }
 
 ### CREATE INTERNET GATEWAY
 
-resource "aws_internet_gateway" "TRF_IGW_01" {
+resource "aws_internet_gateway" "int-gw-0001" {
 
-    vpc_id = aws_vpc.TRF_vpc.id
+    vpc_id = aws_vpc.vpc-corp-0001.id
 
     tags = {
-        Name = "TRF_IGW_01"
-        Origin = "TRF"
+        Name        = "int-gw-0001"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
     }
 
 }
 
 ### CREATE ROUTE TABLE
 
-resource "aws_route_table" "TRF_RT_PUBLIC" {
+resource "aws_route_table" "rt-public-0001" {
 
-    vpc_id = aws_vpc.TRF_vpc.id
+    vpc_id = aws_vpc.vpc-corp-0001.id
 
     tags = {
-        Name = "TRF_RT_PUB"
-        Origin = "TRF"
+        Name        = "rt-public-0001"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
     }
 
 }
 
-resource "aws_route_table" "TRF_RT_INTERNAL_01" {
+resource "aws_route_table" "rt-private-0001" {
 
-    vpc_id = aws_vpc.TRF_vpc.id
+    vpc_id = aws_vpc.vpc-corp-0001.id
 
     tags = {
-        Name = "TRF_RT_INT"
-        Origin = "TRF"
+        Name        = "rt-private-0001"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
     }
 }
 
-resource "aws_route_table" "TRF_RT_INTERNAL_02" {
+resource "aws_route_table" "rt-private-0002" {
 
-    vpc_id = aws_vpc.TRF_vpc.id
+    vpc_id = aws_vpc.vpc-corp-0001.id
 
     tags = {
-        Name = "TRF_RT_INT"
-        Origin = "TRF"
+        Name        = "rt-private-0002"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
     }
 }
 
-resource "aws_route_table" "TRF_RT_MGMT_01" {
+resource "aws_route_table" "rt-mgmt-0001" {
 
-    vpc_id = aws_vpc.TRF_vpc.id
+    vpc_id = aws_vpc.vpc-corp-0001.id
 
     tags = {
-        Name = "TRF_RT_MGMT"
-        Origin = "TRF"
+        Name        = "rt-mgmt-0002"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
     }
 }
 
-resource "aws_route_table" "TRF_RT_MGMT_02" {
+resource "aws_route_table" "rt-mgmt-0002" {
 
-    vpc_id = aws_vpc.TRF_vpc.id
+    vpc_id = aws_vpc.vpc-corp-0001.id
 
     tags = {
-        Name = "TRF_RT_MGMT"
-        Origin = "TRF"
+        Name        = "rt-mgmt-0002"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
     }
 }
 
@@ -461,98 +651,114 @@ resource "aws_route_table" "TRF_RT_MGMT_02" {
 
 resource "aws_route" "TRF_Internet_Route" {
 
-    route_table_id = aws_route_table.TRF_RT_PUBLIC.id
+    route_table_id = aws_route_table.rt-public-0001.id
     destination_cidr_block = var.destinationdefault
-    gateway_id = aws_internet_gateway.TRF_IGW_01.id
+    gateway_id = aws_internet_gateway.int-gw-0001.id
 
 }
 
 ### CREATE ELASTIC IP
 
-resource "aws_eip" "TRF_EIP_01"{
+resource "aws_eip" "eip-0001"{
 
     tags = {
-        Name = "TRF_EIP_01"
-        Origin = "TRF"
+        Name        = "eip-0001"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
     }
 
 }
 
-resource "aws_eip" "TRF_EIP_02"{
+resource "aws_eip" "eip-0002"{
 
     tags = {
-        Name = "TRF_EIP_02"
-        Origin = "TRF"
+        Name        = "eip-0002"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
     }
 
 }
 
-resource "aws_eip" "TRF_EIP_03"{
+resource "aws_eip" "eip-0003"{
 
     tags = {
-        Name = "TRF_EIP_03"
-        Origin = "TRF"
+        Name        = "eip-0003"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
     }
 
 }
 
-resource "aws_eip" "TRF_EIP_04"{
+resource "aws_eip" "eip-0004"{
 
     tags = {
-        Name = "TRF_EIP_04"
-        Origin = "TRF"
-    }
-
-}
-
-### CREATE NAT GATEWAY
-
-resource "aws_nat_gateway" "TRF_NAT_GW_01" {
-    subnet_id = aws_subnet.TRF_Ext_Sub_01.id
-    allocation_id = aws_eip.TRF_EIP_01.id
-
-    tags = {
-        Name = "TRF_NAT_GW_01"
-        Origin = "TRF"
+        Name        = "eip-0004"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
     }
 
 }
 
 ### CREATE NAT GATEWAY
 
-resource "aws_nat_gateway" "TRF_NAT_GW_02" {
-    subnet_id = aws_subnet.TRF_Ext_Sub_02.id
-    allocation_id = aws_eip.TRF_EIP_02.id
+resource "aws_nat_gateway" "nat-gw-0001" {
+    subnet_id = aws_subnet.pub-net-01.id
+    allocation_id = aws_eip.eip-0001.id
 
     tags = {
-        Name = "TRF_NAT_GW_02"
-        Origin = "TRF"
+        Name        = "nat-gw-0001"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
     }
 
 }
 
 ### CREATE NAT GATEWAY
 
-resource "aws_nat_gateway" "TRF_NAT_GW_03" {
-    subnet_id = aws_subnet.TRF_Ext_Sub_01.id
-    allocation_id = aws_eip.TRF_EIP_03.id
+resource "aws_nat_gateway" "nat-gw-0002" {
+    subnet_id = aws_subnet.pub-net-03.id
+    allocation_id = aws_eip.eip-0002.id
 
     tags = {
-        Name = "TRF_NAT_GW_03"
-        Origin = "TRF"
+        Name        = "nat-gw-0002"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
     }
 
 }
 
 ### CREATE NAT GATEWAY
 
-resource "aws_nat_gateway" "TRF_NAT_GW_04" {
-    subnet_id = aws_subnet.TRF_Ext_Sub_02.id
-    allocation_id = aws_eip.TRF_EIP_04.id
+resource "aws_nat_gateway" "nat-gw-0003" {
+    subnet_id = aws_subnet.pub-net-01.id
+    allocation_id = aws_eip.eip-0003.id
 
     tags = {
-        Name = "TRF_NAT_GW_04"
-        Origin = "TRF"
+        Name        = "nat-gw-0003"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
+    }
+
+}
+
+### CREATE NAT GATEWAY
+
+resource "aws_nat_gateway" "nat-gw-0004" {
+    subnet_id = aws_subnet.pub-net-03.id
+    allocation_id = aws_eip.eip-0004.id
+
+    tags = {
+        Name        = "nat-gw-0004"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
     }
 
 }
@@ -561,17 +767,17 @@ resource "aws_nat_gateway" "TRF_NAT_GW_04" {
 
 resource "aws_route" "TRF_Nat_Route_Int_Net_01" {
 
-    route_table_id = aws_route_table.TRF_RT_INTERNAL_01.id
+    route_table_id = aws_route_table.rt-private-0001.id
     destination_cidr_block = var.destinationdefault
-    nat_gateway_id = aws_nat_gateway.TRF_NAT_GW_01.id
+    nat_gateway_id = aws_nat_gateway.nat-gw-0001.id
 
 }
 
 resource "aws_route" "TRF_Nat_Route_Int_Net_02" {
 
-    route_table_id = aws_route_table.TRF_RT_INTERNAL_02.id
+    route_table_id = aws_route_table.rt-private-0002.id
     destination_cidr_block = var.destinationdefault
-    nat_gateway_id = aws_nat_gateway.TRF_NAT_GW_02.id
+    nat_gateway_id = aws_nat_gateway.nat-gw-0002.id
 
 }
 
@@ -579,170 +785,219 @@ resource "aws_route" "TRF_Nat_Route_Int_Net_02" {
 
 resource "aws_route" "TRF_Nat_Route_MGMT_Net_01" {
 
-    route_table_id = aws_route_table.TRF_RT_MGMT_01.id
+    route_table_id = aws_route_table.rt-mgmt-0001.id
     destination_cidr_block = var.destinationdefault
-    nat_gateway_id = aws_nat_gateway.TRF_NAT_GW_03.id
+    nat_gateway_id = aws_nat_gateway.nat-gw-0003.id
 
 }
 
 resource "aws_route" "TRF_Nat_Route_MGMT_Net_02" {
 
-    route_table_id = aws_route_table.TRF_RT_MGMT_02.id
+    route_table_id = aws_route_table.rt-mgmt-0002.id
     destination_cidr_block = var.destinationdefault
-    nat_gateway_id = aws_nat_gateway.TRF_NAT_GW_04.id
+    nat_gateway_id = aws_nat_gateway.nat-gw-0004.id
 
 }
 
 ### ASSOCIATE NETWORKS TO ROUTE TABLE
 
-resource "aws_route_table_association" "TRF_vpc_association_pub_01" {
+resource "aws_route_table_association" "vpc-corp-0001_association_pub_01" {
 
-    subnet_id      = aws_subnet.TRF_Ext_Sub_01.id
-    route_table_id = aws_route_table.TRF_RT_PUBLIC.id
-
-}
-
-resource "aws_route_table_association" "TRF_vpc_association_pub_02" {
-
-    subnet_id      = aws_subnet.TRF_Ext_Sub_02.id
-    route_table_id = aws_route_table.TRF_RT_PUBLIC.id
+    subnet_id      = aws_subnet.pub-net-01.id
+    route_table_id = aws_route_table.rt-public-0001.id
 
 }
 
-resource "aws_route_table_association" "TRF_vpc_association_int_01" {
+resource "aws_route_table_association" "vpc-corp-0001_association_pub_02" {
 
-    subnet_id      = aws_subnet.TRF_Int_Sub_01.id
-    route_table_id = aws_route_table.TRF_RT_INTERNAL_01.id
-
-}
-
-resource "aws_route_table_association" "TRF_vpc_association_int_02" {
-
-    subnet_id      = aws_subnet.TRF_Int_Sub_02.id
-    route_table_id = aws_route_table.TRF_RT_INTERNAL_02.id
+    subnet_id      = aws_subnet.pub-net-02.id
+    route_table_id = aws_route_table.rt-public-0001.id
 
 }
 
-resource "aws_route_table_association" "TRF_vpc_association_mgmt_01" {
+resource "aws_route_table_association" "vpc-corp-0001_association_pub_03" {
 
-    subnet_id      = aws_subnet.TRF_MGMT_Sub_01.id
-    route_table_id = aws_route_table.TRF_RT_MGMT_01.id
+    subnet_id      = aws_subnet.pub-net-03.id
+    route_table_id = aws_route_table.rt-public-0001.id
 
 }
 
-resource "aws_route_table_association" "TRF_vpc_association_mgmt_02" {
+resource "aws_route_table_association" "vpc-corp-0001_association_pub_04" {
 
-    subnet_id      = aws_subnet.TRF_MGMT_Sub_02.id
-    route_table_id = aws_route_table.TRF_RT_MGMT_02.id
+    subnet_id      = aws_subnet.pub-net-04.id
+    route_table_id = aws_route_table.rt-public-0001.id
+
+}
+
+resource "aws_route_table_association" "vpc-corp-0001_association_priv_01" {
+
+    subnet_id      = aws_subnet.priv-net-01.id
+    route_table_id = aws_route_table.rt-private-0001.id
+
+}
+
+resource "aws_route_table_association" "vpc-corp-0001_association_priv_02" {
+
+    subnet_id      = aws_subnet.priv-net-02.id
+    route_table_id = aws_route_table.rt-private-0002.id
+
+}
+
+resource "aws_route_table_association" "vpc-corp-0001_association_priv_03" {
+
+    subnet_id      = aws_subnet.priv-net-03.id
+    route_table_id = aws_route_table.rt-private-0001.id
+
+}
+
+resource "aws_route_table_association" "vpc-corp-0001_association_priv_04" {
+
+    subnet_id      = aws_subnet.priv-net-04.id
+    route_table_id = aws_route_table.rt-private-0002.id
+
+}
+
+resource "aws_route_table_association" "vpc-corp-0001_association_mgmt_01" {
+
+    subnet_id      = aws_subnet.mgmt-net-01.id
+    route_table_id = aws_route_table.rt-mgmt-0001.id
+
+}
+
+resource "aws_route_table_association" "vpc-corp-0001_association_mgmt_02" {
+
+    subnet_id      = aws_subnet.mgmt-net-02.id
+    route_table_id = aws_route_table.rt-mgmt-0002.id
+
+}
+
+resource "aws_route_table_association" "vpc-corp-0001_association_mgmt_03" {
+
+    subnet_id      = aws_subnet.mgmt-net-03.id
+    route_table_id = aws_route_table.rt-mgmt-0001.id
+
+}
+
+resource "aws_route_table_association" "vpc-corp-0001_association_mgmt_04" {
+
+    subnet_id      = aws_subnet.mgmt-net-04.id
+    route_table_id = aws_route_table.rt-mgmt-0002.id
 
 }
 
 ### CREATE WEBSERVER INSTANCE
 
-resource "aws_instance" "WebServer_TRF" {
+resource "aws_instance" "web-0001" {
 
     ami = "ami-2757f631"
     instance_type = "t2.micro"
     associate_public_ip_address = true
     key_name = "trf-us-east1-0001"
-    subnet_id = aws_subnet.TRF_Ext_Sub_01.id
-    vpc_security_group_ids = [aws_security_group.TRF_SG_WEB.id]
+    subnet_id = aws_subnet.pub-net-01.id
+    vpc_security_group_ids = [aws_security_group.secgrp-web-0001.id]
 
     tags = {
-        Name = "WebServer"
-        Origin = "TRF"
+        Name        = "web-0001"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
     }
 
 }
 
 ### CREATE DATABASE INSTANCE
 
-resource "aws_instance" "Database_TRF" {
+resource "aws_instance" "db-0001" {
 
     ami = "ami-2757f631"
     instance_type = "t2.micro"
     associate_public_ip_address = false
     key_name = "trf-us-east1-0001"
-    subnet_id = aws_subnet.TRF_Int_Sub_01.id
-    vpc_security_group_ids = [aws_security_group.TRF_SG_DB.id]
+    subnet_id = aws_subnet.priv-net-01.id
+    vpc_security_group_ids = [aws_security_group.secgrp-private-0001.id]
 
     tags = {
-        Name = "Database"
-        Origin = "TRF"
+        Name        = "db-0001"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
     }
 
 }
 
 ### CREATE GIT INSTANCE
 
-resource "aws_instance" "GITLAB_TRF" {
+resource "aws_instance" "gitlab-0001" {
 
     ami = "ami-01ca03df4a6012157"
     instance_type = "t3a.xlarge"
     associate_public_ip_address = false
     key_name = "trf-us-east1-0001"
-    subnet_id = aws_subnet.TRF_Int_Sub_01.id
-    vpc_security_group_ids = [aws_security_group.TRF_SG_DB.id]
+    subnet_id = aws_subnet.mgmt-net-01.id
+    vpc_security_group_ids = [aws_security_group.secgrp-mgmt-0001.id]
 
     tags = {
-        Name = "GITLAB"
-        Origin = "TRF"
+        Name        = "gitlab-0001"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
     }
 
 }
 
 ### CREATE LOADBALANCE
 
-resource "aws_lb" "TRF-lb-gitlab-001" {
+resource "aws_lb" "lb-gitlab-0001" {
 
-    name               = "TRF-lb-gitlab-001"
+    name               = "lb-gitlab-0001"
     internal           = false
     load_balancer_type = "application"
-    security_groups    = [aws_security_group.TRF_SG_WEB.id]
-    subnets            = [aws_subnet.TRF_Ext_Sub_01.id,aws_subnet.TRF_Ext_Sub_02.id]
+    security_groups    = [aws_security_group.secgrp-web-0001.id]
+    subnets            = [aws_subnet.pub-net-01.id,aws_subnet.pub-net-02.id,aws_subnet.pub-net-03.id,aws_subnet.pub-net-04.id]
 
     enable_deletion_protection = false
 
     access_logs {
         bucket  = "woclandiner-bucket-0001"
-        prefix  = "TRF-lb-gitlab-001"
+        prefix  = "lb-gitlab-0001"
         enabled = true
     }
 
     tags = {
-        Environment = "prod"
-        Name = "GITLAB_LB"
-        Origin = "TRF"
+        Name        = "lb-gitlab-0001"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
     }
 
 }
 
 ### CREATE TARGET GROUP
 
-resource "aws_lb_target_group" "TRF-target-group-gitlab-0001" {
+resource "aws_lb_target_group" "target-group-gitlab-0001" {
 
     name     = "target-group-gitlab-0001"
     port     = 80
     protocol = "HTTP"
-    vpc_id   = aws_vpc.TRF_vpc.id
+    vpc_id   = aws_vpc.vpc-corp-0001.id
 
 }
 
 ### ATTACH INSTANCE TO LB TARGET GROUP 
 
-resource "aws_lb_target_group_attachment" "TRF_lb_target_group_attach_0001" {
+resource "aws_lb_target_group_attachment" "lb-target-group-attach-0001" {
 
-    target_group_arn = aws_lb_target_group.TRF-target-group-gitlab-0001.arn
-    target_id        = aws_instance.GITLAB_TRF.id
+    target_group_arn = aws_lb_target_group.target-group-gitlab-0001.arn
+    target_id        = aws_instance.gitlab-0001.id
     port             = 80
 
 }
 
 ### CREATING LISTENER
 
-resource "aws_lb_listener" "TRF_lb_listener_0001" {
+resource "aws_lb_listener" "lb-listener-0001" {
 
-    load_balancer_arn = aws_lb.TRF-lb-gitlab-001.arn
+    load_balancer_arn = aws_lb.lb-gitlab-0001.arn
     port              = "80"
     protocol          = "HTTP"
 #    ssl_policy        = "ELBSecurityPolicy-2016-08"
@@ -750,12 +1005,12 @@ resource "aws_lb_listener" "TRF_lb_listener_0001" {
 
     default_action {
         type             = "forward"
-        target_group_arn = aws_lb_target_group.TRF-target-group-gitlab-0001.arn
+        target_group_arn = aws_lb_target_group.target-group-gitlab-0001.arn
     }
 
 }
 
-resource "aws_dynamodb_table" "terraform_state_lock" {
+resource "aws_dynamodb_table" "dynamodb-terraform-state-lock-0001" {
 
     name="terraform-lock"
     read_capacity=5
@@ -768,10 +1023,10 @@ resource "aws_dynamodb_table" "terraform_state_lock" {
 
 }
 
-resource "aws_db_subnet_group" "TRF_db_subnet_group_0001" {
+resource "aws_db_subnet_group" "rds-subnet-group-0001" {
 
-    name       = "db_subnet_group_gitlab_0001"
-    subnet_ids = [aws_subnet.TRF_Int_Sub_01.id,aws_subnet.TRF_Int_Sub_02.id]
+    name       = "db-subnet-group-gitlab-0001"
+    subnet_ids = [aws_subnet.priv-net-01.id,aws_subnet.priv-net-02.id,aws_subnet.priv-net-03.id,aws_subnet.priv-net-04.id]
 
     tags = {
         Name = "My DB subnet group"
@@ -779,36 +1034,56 @@ resource "aws_db_subnet_group" "TRF_db_subnet_group_0001" {
 
 }
 
-resource "aws_rds_cluster" "TRF_aurora_postgre_gitlab_0001" {
 
-    cluster_identifier       = "aurora-postgre-gitlab-0001"
-    engine                   = "aurora-postgresql"
-    availability_zones       = ["us-east-1a", "us-east-1b"]
-    database_name            = "gitlabhq_production"
-    master_username          = "gitlab"
-    master_password          = "gitlab123"
-    backup_retention_period  = 30
-    preferred_backup_window  = "00:00-03:00"
-    deletion_protection      = true
-    engine_mode              = "serverless"
-    db_subnet_group_name     = aws_db_subnet_group.TRF_db_subnet_group_0001.id
-    vpc_security_group_ids   = [aws_security_group.TRF_SG_RDS.id]
+resource "aws_rds_cluster" "rds-aurora-postgre-gitlab-0001" {
+
+    cluster_identifier        = "rds-aurora-postgre-gitlab-0001"
+    engine                    = "aurora-postgresql"
+    database_name             =  "gitlabhq_production"
+    master_username           = "gitlab"
+    master_password           = "woclandiner"
+    backup_retention_period   = 30
+    preferred_backup_window   = "00:00-03:00"
+    deletion_protection       = false
+    engine_mode               = "serverless"
+    db_subnet_group_name      = aws_db_subnet_group.rds-subnet-group-0001.id
+    vpc_security_group_ids    = [aws_security_group.secgrp-rds-0001.id]
+    final_snapshot_identifier = "snap-rds-postgre-0001"
+
+}
+
+resource "aws_elasticache_subnet_group" "subnet-group-redis-gitlab-0001" {
+
+    name       = "subnet-group-redis-gitlab-0001"
+    subnet_ids = [aws_subnet.priv-net-01.id,aws_subnet.priv-net-02.id,aws_subnet.priv-net-03.id,aws_subnet.priv-net-04.id]
 
 }
 
-resource "aws_rds_cluster" "TRF_aurora_postgre_gitlab_0002" {
+resource "aws_elasticache_replication_group" "redis-rep-group-0001" {
 
-    cluster_identifier       = "aurora-postgre-gitlab-0002"
-    engine                   = "aurora-postgresql"
-    availability_zones       = ["us-east-1a", "us-east-1b"]
-    database_name            = "gitlabhq_production"
-    master_username          = "gitlab"
-    master_password          = "gitlab123"
-    backup_retention_period  = 30
-    preferred_backup_window  = "00:00-03:00"
-    deletion_protection      = true
-    engine_mode              = "serverless"
-    db_subnet_group_name     = aws_db_subnet_group.TRF_db_subnet_group_0001.id
-    vpc_security_group_ids   = [aws_security_group.TRF_SG_RDS.id]
+    automatic_failover_enabled    = true
+    availability_zones            = ["us-east-1a", "us-east-1c"]
+    replication_group_id          = "redis-rg01"
+    replication_group_description = "Replication Group Redis Gitlab"
+    engine                        = "redis"
+    engine_version                = "5.0.6"
+    node_type                     = "cache.t2.small"
+    number_cache_clusters         = 2
+    parameter_group_name          = "default.redis5.0"
+    security_group_ids            = [aws_security_group.secgrp-redis-0001.id]
+    subnet_group_name             = aws_elasticache_subnet_group.subnet-group-redis-gitlab-0001.id
+    port                          = 6379
+
+    lifecycle {
+        ignore_changes = [number_cache_clusters]
+    }
 
 }
+
+#resource "aws_elasticache_cluster" "redis-gitlab-0001" {
+#    count = 1
+#
+#    cluster_id           = "redis-cl01-${count.index}"
+#    replication_group_id = "${aws_elasticache_replication_group.redis-rep-group-0001.id}"
+#}
+

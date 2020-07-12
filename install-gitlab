@@ -7,6 +7,16 @@ sudo systemctl enable postfix
 curl https://packages.gitlab.com/install/repositories/gitlab/gitlab-ce/script.rpm.sh | sudo bash
 EXTERNAL_URL="http://gitlab.idroot.us" dnf install gitlab-ce -y
 gitlab-ctl reconfigure
-firewall-cmd --permanent --add-service=80/tcp
-firewall-cmd --permanent --add-service=443/tcp
-systemctl reload firewalld
+
+echo "postgresql['enable'] = false" >> /etc/gitlab/gitlab.rb
+echo "gitlab_rails['db_adapter'] = \"postgresql\"" >> /etc/gitlab/gitlab.rb
+echo "gitlab_rails['db_encoding'] = \"unicode\"" >> /etc/gitlab/gitlab.rb
+echo "gitlab_rails['db_database'] = \"gitlabhq_production\"" >> /etc/gitlab/gitlab.rb
+echo "gitlab_rails['db_username'] = \"gitlab\"" >> /etc/gitlab/gitlab.rb
+echo "gitlab_rails['db_password'] = \"woclandiner\"" >> /etc/gitlab/gitlab.rb
+echo "gitlab_rails['db_host'] = \"rds-aurora-postgre-gitlab-0001.cluster-cjxk1dzqthfq.us-east-1.rds.amazonaws.com\"" >> /etc/gitlab/gitlab.rb
+
+echo "redis['enable'] = true" >> /etc/gitlab/gitlab.rb
+echo "gitlab_rails['redis_host'] = \"redis-rg01.7zapmf.ng.0001.use1.cache.amazonaws.com\"" >> /etc/gitlab/gitlab.rb
+echo "gitlab_rails['redis_port'] = 6379" >> /etc/gitlab/gitlab.rb
+
