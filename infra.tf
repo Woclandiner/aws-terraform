@@ -301,6 +301,47 @@ resource "aws_security_group_rule" "rule-out-https-0002" {
 
 }
 
+### ADD SECURITY FGT WAN
+
+resource "aws_security_group" "secgrp-fgtwan-0001" {
+
+    vpc_id       = aws_vpc.vpc-corp-0001.id
+    name         = "secgrp-fgtwan-0001"
+    description  = "SG FGT WAN"
+
+    tags = {
+        Name        = "secgrp-fgtwan-0001"
+        origin      = "terraform"
+        team        = "infra"
+        env         = "prod"
+    }
+
+}
+
+### CREATING RULE FOR SECURITY GROUP FGT WAN
+
+resource "aws_security_group_rule" "rule-in-https-0004" {
+
+    type        = "ingress"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    security_group_id = aws_security_group.secgrp-fgtwan-0001.id
+    cidr_blocks = [var.destinationdefault]
+
+}
+
+resource "aws_security_group_rule" "rule-in-https-mgmt-0001" {
+
+    type        = "ingress"
+    from_port   = 40443
+    to_port     = 40443
+    protocol    = "tcp"
+    security_group_id = aws_security_group.secgrp-fgtwan-0001.id
+    cidr_blocks = [var.destinationdefault]
+
+}
+
 ### ADD SECURITY GROUP MGMT
 
 resource "aws_security_group" "secgrp-mgmt-0001" {
@@ -611,31 +652,7 @@ resource "aws_route_table" "rt-private-0001" {
     }
 }
 
-resource "aws_route_table" "rt-private-0002" {
-
-    vpc_id = aws_vpc.vpc-corp-0001.id
-
-    tags = {
-        Name        = "rt-private-0002"
-        origin      = "terraform"
-        team        = "infra"
-        env         = "prod"
-    }
-}
-
 resource "aws_route_table" "rt-mgmt-0001" {
-
-    vpc_id = aws_vpc.vpc-corp-0001.id
-
-    tags = {
-        Name        = "rt-mgmt-0002"
-        origin      = "terraform"
-        team        = "infra"
-        env         = "prod"
-    }
-}
-
-resource "aws_route_table" "rt-mgmt-0002" {
 
     vpc_id = aws_vpc.vpc-corp-0001.id
 
@@ -721,41 +738,11 @@ resource "aws_nat_gateway" "nat-gw-0001" {
 ### CREATE NAT GATEWAY
 
 resource "aws_nat_gateway" "nat-gw-0002" {
-    subnet_id = aws_subnet.pub-net-03.id
+    subnet_id = aws_subnet.pub-net-02.id
     allocation_id = aws_eip.eip-0002.id
 
     tags = {
         Name        = "nat-gw-0002"
-        origin      = "terraform"
-        team        = "infra"
-        env         = "prod"
-    }
-
-}
-
-### CREATE NAT GATEWAY
-
-resource "aws_nat_gateway" "nat-gw-0003" {
-    subnet_id = aws_subnet.pub-net-01.id
-    allocation_id = aws_eip.eip-0003.id
-
-    tags = {
-        Name        = "nat-gw-0003"
-        origin      = "terraform"
-        team        = "infra"
-        env         = "prod"
-    }
-
-}
-
-### CREATE NAT GATEWAY
-
-resource "aws_nat_gateway" "nat-gw-0004" {
-    subnet_id = aws_subnet.pub-net-03.id
-    allocation_id = aws_eip.eip-0004.id
-
-    tags = {
-        Name        = "nat-gw-0004"
         origin      = "terraform"
         team        = "infra"
         env         = "prod"
@@ -773,29 +760,13 @@ resource "aws_route" "TRF_Nat_Route_Int_Net_01" {
 
 }
 
-resource "aws_route" "TRF_Nat_Route_Int_Net_02" {
-
-    route_table_id = aws_route_table.rt-private-0002.id
-    destination_cidr_block = var.destinationdefault
-    nat_gateway_id = aws_nat_gateway.nat-gw-0002.id
-
-}
-
 ### CREATE ROUTE TO NAT GATEWAY FROM MGMT NETWORK
 
 resource "aws_route" "TRF_Nat_Route_MGMT_Net_01" {
 
     route_table_id = aws_route_table.rt-mgmt-0001.id
     destination_cidr_block = var.destinationdefault
-    nat_gateway_id = aws_nat_gateway.nat-gw-0003.id
-
-}
-
-resource "aws_route" "TRF_Nat_Route_MGMT_Net_02" {
-
-    route_table_id = aws_route_table.rt-mgmt-0002.id
-    destination_cidr_block = var.destinationdefault
-    nat_gateway_id = aws_nat_gateway.nat-gw-0004.id
+    nat_gateway_id = aws_nat_gateway.nat-gw-0002.id
 
 }
 
@@ -839,7 +810,7 @@ resource "aws_route_table_association" "vpc-corp-0001_association_priv_01" {
 resource "aws_route_table_association" "vpc-corp-0001_association_priv_02" {
 
     subnet_id      = aws_subnet.priv-net-02.id
-    route_table_id = aws_route_table.rt-private-0002.id
+    route_table_id = aws_route_table.rt-private-0001.id
 
 }
 
@@ -853,7 +824,7 @@ resource "aws_route_table_association" "vpc-corp-0001_association_priv_03" {
 resource "aws_route_table_association" "vpc-corp-0001_association_priv_04" {
 
     subnet_id      = aws_subnet.priv-net-04.id
-    route_table_id = aws_route_table.rt-private-0002.id
+    route_table_id = aws_route_table.rt-private-0001.id
 
 }
 
@@ -867,7 +838,7 @@ resource "aws_route_table_association" "vpc-corp-0001_association_mgmt_01" {
 resource "aws_route_table_association" "vpc-corp-0001_association_mgmt_02" {
 
     subnet_id      = aws_subnet.mgmt-net-02.id
-    route_table_id = aws_route_table.rt-mgmt-0002.id
+    route_table_id = aws_route_table.rt-mgmt-0001.id
 
 }
 
@@ -881,7 +852,7 @@ resource "aws_route_table_association" "vpc-corp-0001_association_mgmt_03" {
 resource "aws_route_table_association" "vpc-corp-0001_association_mgmt_04" {
 
     subnet_id      = aws_subnet.mgmt-net-04.id
-    route_table_id = aws_route_table.rt-mgmt-0002.id
+    route_table_id = aws_route_table.rt-mgmt-0001.id
 
 }
 
@@ -905,39 +876,55 @@ resource "aws_instance" "web-0001" {
 
 }
 
-### CREATE DATABASE INSTANCE
-
-resource "aws_instance" "db-0001" {
-
-    ami = "ami-2757f631"
-    instance_type = "t2.micro"
-    associate_public_ip_address = false
-    key_name = "trf-us-east1-0001"
-    subnet_id = aws_subnet.priv-net-01.id
-    vpc_security_group_ids = [aws_security_group.secgrp-private-0001.id]
-
-    tags = {
-        Name        = "db-0001"
-        origin      = "terraform"
-        team        = "infra"
-        env         = "prod"
-    }
-
-}
-
 ### CREATE GIT INSTANCE
 
-resource "aws_instance" "gitlab-0001" {
+#resource "aws_instance" "gitlab-0001" {
+#
+#    ami = "ami-01ca03df4a6012157"
+#    instance_type = "t3a.xlarge"
+#    associate_public_ip_address = false
+#    key_name = "trf-us-east1-0001"
+#    subnet_id = aws_subnet.mgmt-net-01.id
+#    vpc_security_group_ids = [aws_security_group.secgrp-mgmt-0001.id]
+#
+#    tags = {
+#        Name        = "gitlab-0001"
+#        origin      = "terraform"
+#        team        = "infra"
+#        env         = "prod"
+#    }
+#
+#}
 
-    ami = "ami-01ca03df4a6012157"
-    instance_type = "t3a.xlarge"
+#resource "aws_instance" "gitlab-0002" {
+#
+#    ami = "ami-01ca03df4a6012157"
+#    instance_type = "t3a.xlarge"
+#    associate_public_ip_address = false
+#    key_name = "trf-us-east1-0001"
+#    subnet_id = aws_subnet.mgmt-net-03.id
+#    vpc_security_group_ids = [aws_security_group.secgrp-mgmt-0001.id]
+#
+#    tags = {
+#        Name        = "gitlab-0002"
+#        origin      = "terraform"
+#        team        = "infra"
+#        env         = "prod"
+#    }
+#
+#}
+
+resource "aws_instance" "aws-fortigate-01" {
+
+    ami = "ami-016ac6c1a802f99a1"
+    instance_type = "c5.large"
     associate_public_ip_address = false
-    key_name = "trf-us-east1-0001"
-    subnet_id = aws_subnet.mgmt-net-01.id
-    vpc_security_group_ids = [aws_security_group.secgrp-mgmt-0001.id]
+    key_name = "fortigate"
+    subnet_id = aws_subnet.priv-net-01.id
+    vpc_security_group_ids = [aws_security_group.secgrp-fgtwan-0001.id]
 
     tags = {
-        Name        = "gitlab-0001"
+        Name        = "aws-fortigate-01"
         origin      = "terraform"
         team        = "infra"
         env         = "prod"
@@ -945,70 +932,195 @@ resource "aws_instance" "gitlab-0001" {
 
 }
 
-### CREATE LOADBALANCE
+### CREATE LOADBALANCE FORTIGATE
 
-resource "aws_lb" "lb-gitlab-0001" {
+resource "aws_lb" "lb-fortigate-0001" {
 
-    name               = "lb-gitlab-0001"
+    name               = "lb-fortigate-0001"
     internal           = false
-    load_balancer_type = "application"
-    security_groups    = [aws_security_group.secgrp-web-0001.id]
+    load_balancer_type = "network"
     subnets            = [aws_subnet.pub-net-01.id,aws_subnet.pub-net-02.id,aws_subnet.pub-net-03.id,aws_subnet.pub-net-04.id]
 
     enable_deletion_protection = false
 
-    access_logs {
-        bucket  = "woclandiner-bucket-0001"
-        prefix  = "lb-gitlab-0001"
-        enabled = true
-    }
-
     tags = {
-        Name        = "lb-gitlab-0001"
+        Name        = "lb-fortigate-0001"
         origin      = "terraform"
         team        = "infra"
         env         = "prod"
+    }
+
+}
+
+### CREATING LISTENER
+
+resource "aws_lb_listener" "lb-list-fortigate-0001" {
+
+    load_balancer_arn = aws_lb.lb-fortigate-0001.arn
+    port              = "443"
+    protocol          = "TCP"
+
+    default_action {
+        type             = "forward"
+        target_group_arn = aws_lb_target_group.tg-fortigate-0001.arn
+    }
+
+}
+
+resource "aws_lb_listener" "lb-list-fortigate-0002" {
+
+    load_balancer_arn = aws_lb.lb-fortigate-0001.arn
+    port              = "40443"
+    protocol          = "TCP"
+
+    default_action {
+        type             = "forward"
+        target_group_arn = aws_lb_target_group.tg-fortigate-0002.arn
     }
 
 }
 
 ### CREATE TARGET GROUP
 
-resource "aws_lb_target_group" "target-group-gitlab-0001" {
+resource "aws_lb_target_group" "tg-fortigate-0001" {
 
-    name     = "target-group-gitlab-0001"
-    port     = 80
-    protocol = "HTTP"
+    name     = "tg-fortigate-0001"
+    port     = 443
+    protocol = "TCP"
+
+    health_check {
+        protocol = "TCP"
+        interval = 10
+    }
+
     vpc_id   = aws_vpc.vpc-corp-0001.id
 
 }
 
-### ATTACH INSTANCE TO LB TARGET GROUP 
+### CREATE TARGET GROUP
 
-resource "aws_lb_target_group_attachment" "lb-target-group-attach-0001" {
+resource "aws_lb_target_group" "tg-fortigate-0002" {
 
-    target_group_arn = aws_lb_target_group.target-group-gitlab-0001.arn
-    target_id        = aws_instance.gitlab-0001.id
-    port             = 80
+    name     = "tg-fortigate-0002"
+    port     = 40443
+    protocol = "TCP"
+
+    health_check {
+        protocol = "TCP"
+        interval = 10
+    }
+
+    vpc_id   = aws_vpc.vpc-corp-0001.id
 
 }
+
+### ATTACH INSTANCE TO LB TARGET GROUP
+
+resource "aws_lb_target_group_attachment" "lb-tg-attach-0001" {
+
+    target_group_arn = aws_lb_target_group.tg-fortigate-0001.arn
+    target_id        = aws_instance.aws-fortigate-01.id
+    port             = 443
+
+}
+
+resource "aws_lb_target_group_attachment" "lb-tg-attach-0002" {
+
+    target_group_arn = aws_lb_target_group.tg-fortigate-0002.arn
+    target_id        = aws_instance.aws-fortigate-01.id
+    port             = 40443
+
+}
+
+
+
+
+
+
+
+
+
+
+### CREATE LOADBALANCE GITLAB
+
+#resource "aws_lb" "lb-gitlab-0001" {
+#
+#    name               = "lb-gitlab-0001"
+#    internal           = false
+#    load_balancer_type = "application"
+#    security_groups    = [aws_security_group.secgrp-web-0001.id]
+#    subnets            = [aws_subnet.pub-net-01.id,aws_subnet.pub-net-02.id,aws_subnet.pub-net-03.id,aws_subnet.pub-net-04.id]
+#
+#    enable_deletion_protection = false
+#
+#    access_logs {
+#        bucket  = "woclandiner-bucket-0001"
+#        prefix  = "lb-gitlab-0001"
+#        enabled = true
+#    }
+#
+#    tags = {
+#        Name        = "lb-gitlab-0001"
+#        origin      = "terraform"
+#        team        = "infra"
+#        env         = "prod"
+#    }
+#
+#}
+
+### CREATE TARGET GROUP
+
+#resource "aws_lb_target_group" "target-group-gitlab-0001" {
+#
+#    name     = "target-group-gitlab-0001"
+#    port     = 80
+#    protocol = "HTTP"
+#
+#    health_check {
+#        matcher  = "200,302"
+#        interval = 10
+#    }
+#
+#    vpc_id   = aws_vpc.vpc-corp-0001.id
+#
+#}
+
+### ATTACH INSTANCE TO LB TARGET GROUP 
+
+#resource "aws_lb_target_group_attachment" "lb-target-group-attach-0001" {
+#
+#    target_group_arn = aws_lb_target_group.target-group-gitlab-0001.arn
+#    target_id        = aws_instance.gitlab-0001.id
+#    port             = 80
+#
+#}
+
+### ATTACH INSTANCE TO LB TARGET GROUP 
+
+#resource "aws_lb_target_group_attachment" "lb-target-group-attach-0002" {
+#
+#    target_group_arn = aws_lb_target_group.target-group-gitlab-0001.arn
+#    target_id        = aws_instance.gitlab-0002.id
+#    port             = 80
+#
+#}
 
 ### CREATING LISTENER
 
-resource "aws_lb_listener" "lb-listener-0001" {
-
-    load_balancer_arn = aws_lb.lb-gitlab-0001.arn
-    port              = "80"
-    protocol          = "HTTP"
+#resource "aws_lb_listener" "lb-listener-0001" {
+#
+#    load_balancer_arn = aws_lb.lb-gitlab-0001.arn
+#    port              = "80"
+#    protocol          = "HTTP"
 #    ssl_policy        = "ELBSecurityPolicy-2016-08"
 #    certificate_arn   = "arn:aws:iam::187416307283:server-certificate/test_cert_rab3wuqwgja25ct3n4jdj2tzu4"
-
-    default_action {
-        type             = "forward"
-        target_group_arn = aws_lb_target_group.target-group-gitlab-0001.arn
-    }
-
-}
+#
+#    default_action {
+#        type             = "forward"
+#        target_group_arn = aws_lb_target_group.target-group-gitlab-0001.arn
+#    }
+#
+#}
 
 resource "aws_dynamodb_table" "dynamodb-terraform-state-lock-0001" {
 
@@ -1023,62 +1135,62 @@ resource "aws_dynamodb_table" "dynamodb-terraform-state-lock-0001" {
 
 }
 
-resource "aws_db_subnet_group" "rds-subnet-group-0001" {
+#resource "aws_db_subnet_group" "rds-subnet-group-0001" {
+#
+#    name       = "db-subnet-group-gitlab-0001"
+#    subnet_ids = [aws_subnet.priv-net-01.id,aws_subnet.priv-net-02.id,aws_subnet.priv-net-03.id,aws_subnet.priv-net-04.id]
+#
+#    tags = {
+#        Name = "My DB subnet group"
+#    }
+#
+#}
 
-    name       = "db-subnet-group-gitlab-0001"
-    subnet_ids = [aws_subnet.priv-net-01.id,aws_subnet.priv-net-02.id,aws_subnet.priv-net-03.id,aws_subnet.priv-net-04.id]
 
-    tags = {
-        Name = "My DB subnet group"
-    }
+#resource "aws_rds_cluster" "rds-aurora-postgre-gitlab-0001" {
+#
+#    cluster_identifier        = "rds-aurora-postgre-gitlab-0001"
+#    engine                    = "aurora-postgresql"
+#    database_name             =  "gitlabhq_production"
+#    master_username           = "gitlab"
+#    master_password           = "woclandiner"
+#    backup_retention_period   = 30
+#    preferred_backup_window   = "00:00-03:00"
+#    deletion_protection       = false
+#    engine_mode               = "serverless"
+#    db_subnet_group_name      = aws_db_subnet_group.rds-subnet-group-0001.id
+#    vpc_security_group_ids    = [aws_security_group.secgrp-rds-0001.id]
+#    final_snapshot_identifier = "snap-rds-postgre-0001"
+#
+#}
 
-}
+#resource "aws_elasticache_subnet_group" "subnet-group-redis-gitlab-0001" {
+#
+#    name       = "subnet-group-redis-gitlab-0001"
+#    subnet_ids = [aws_subnet.priv-net-01.id,aws_subnet.priv-net-02.id,aws_subnet.priv-net-03.id,aws_subnet.priv-net-04.id]
+#
+#}
 
-
-resource "aws_rds_cluster" "rds-aurora-postgre-gitlab-0001" {
-
-    cluster_identifier        = "rds-aurora-postgre-gitlab-0001"
-    engine                    = "aurora-postgresql"
-    database_name             =  "gitlabhq_production"
-    master_username           = "gitlab"
-    master_password           = "woclandiner"
-    backup_retention_period   = 30
-    preferred_backup_window   = "00:00-03:00"
-    deletion_protection       = false
-    engine_mode               = "serverless"
-    db_subnet_group_name      = aws_db_subnet_group.rds-subnet-group-0001.id
-    vpc_security_group_ids    = [aws_security_group.secgrp-rds-0001.id]
-    final_snapshot_identifier = "snap-rds-postgre-0001"
-
-}
-
-resource "aws_elasticache_subnet_group" "subnet-group-redis-gitlab-0001" {
-
-    name       = "subnet-group-redis-gitlab-0001"
-    subnet_ids = [aws_subnet.priv-net-01.id,aws_subnet.priv-net-02.id,aws_subnet.priv-net-03.id,aws_subnet.priv-net-04.id]
-
-}
-
-resource "aws_elasticache_replication_group" "redis-rep-group-0001" {
-
-    automatic_failover_enabled    = true
-    availability_zones            = ["us-east-1a", "us-east-1c"]
-    replication_group_id          = "redis-rg01"
-    replication_group_description = "Replication Group Redis Gitlab"
-    engine                        = "redis"
-    engine_version                = "5.0.6"
-    node_type                     = "cache.t2.small"
-    number_cache_clusters         = 2
-    parameter_group_name          = "default.redis5.0"
-    security_group_ids            = [aws_security_group.secgrp-redis-0001.id]
-    subnet_group_name             = aws_elasticache_subnet_group.subnet-group-redis-gitlab-0001.id
-    port                          = 6379
-
-    lifecycle {
-        ignore_changes = [number_cache_clusters]
-    }
-
-}
+#resource "aws_elasticache_replication_group" "redis-rep-group-0001" {
+#
+#    automatic_failover_enabled    = true
+#    availability_zones            = ["us-east-1a", "us-east-1c"]
+#    replication_group_id          = "redis-rg01"
+#    replication_group_description = "Replication Group Redis Gitlab"
+#    engine                        = "redis"
+#    engine_version                = "5.0.6"
+#    node_type                     = "cache.t2.small"
+#    number_cache_clusters         = 2
+#    parameter_group_name          = "default.redis5.0"
+#    security_group_ids            = [aws_security_group.secgrp-redis-0001.id]
+#    subnet_group_name             = aws_elasticache_subnet_group.subnet-group-redis-gitlab-0001.id
+#    port                          = 6379
+#
+#    lifecycle {
+#        ignore_changes = [number_cache_clusters]
+#    }
+#
+#}
 
 #resource "aws_elasticache_cluster" "redis-gitlab-0001" {
 #    count = 1
